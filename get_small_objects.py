@@ -13,8 +13,10 @@ import os
 from astropy.io import fits
 from functions_wcs import *
 
+#name of field to be changed for each run  
+field=str(4)
 
-df=pd.read_csv('Stripe82_2b.csv',sep=',')
+df=pd.read_csv('Stripe82_'+field+'b.csv',sep=',')
 print(df.columns)
 
 print(df['class'].value_counts())
@@ -122,13 +124,18 @@ for i in range(df.shape[0]):
         #adding the cut outs not of image
         cut_outs2[:,:,0,counter]=cut_outs[:,:,i]
         counter+=1
-#Now I add the iamge value to the data frame, that can be used for all connected percitron networks 
+#Now I add the image value to the data frame, that can be used for all connected percitron networks 
 x=0
 for i in range(cut_outs2.shape[0]):
     for j in range(cut_outs2.shape[1]):
         df2[x]=cut_outs2[i,j,0,:]
         x+=1
         
-
-np.save("stripe82_2_small_im.npy",cut_outs2)    
-df2.to_csv('stripe82_2_small_table.csv') 
+#only save when there is something otherwise likely a problem        
+if x>0: 
+    np.save("stripe82_"+field+"_small_im.npy",cut_outs2)    
+    df2.to_csv('stripe82_'+field+'_small_table.csv') 
+else:
+    print("nothing saved, there is nothing collected")
+    
+print(f"counter is {counter}, number of rows is {df2.shape[0]}")   
