@@ -13,8 +13,10 @@ import os
 from astropy.io import fits
 from functions_wcs import *
 
+#name of field to be changed for each run  
+field=str(4)
 
-df=pd.read_csv('Stripe82_2_zoo1b.csv',sep=',')
+df=pd.read_csv('Stripe82_'+field+'_zoo1b.csv',sep=',')
 print(df.columns)
 
 print(df['class'].value_counts())
@@ -86,5 +88,12 @@ for i in range(df2.shape[0]):
         #adding the cut outs not of image
         cut_out2[:,:,0,counter]=cut_out[:,:,i]
         counter+=1
-np.save("stripe82_2_ell_spiral_im.npy",cut_out2)    
-df3.to_csv('stripe82_2_ell_spiral_table.csv') 
+        
+#only save when there is something otherwise likely a problem        
+if counter>0:        
+    np.save("stripe82_"+field+"_ell_spiral_im.npy",cut_out2)    
+    df3.to_csv('stripe82_'+field+'_ell_spiral_table.csv') 
+else:
+    print("nothing saved, there is nothing collected")
+    
+print(f"counter is {counter}, number of rows is {df3.shape[0]}")       
