@@ -451,7 +451,7 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
         rot_image_train=0
         start_time=time.time()
         xgb_reg=XGBClassifier(max_depth=max_depth,reg_lambda=l2reg).fit(rot_df_train.iloc[:,51:1900],rot_target_train) 
-        xgb_reg.save_model("xgboost_model_spiral_ell_noi_"+l2reg+".json")
+        xgb_reg.save_model("xgboost_model_spiral_ell_noi_"+str(l2reg)+".json")
         stop_time=time.time()
         print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
         pass
@@ -483,5 +483,5 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
         pass
         #   snippet needed 5733.833 seconds
 
-#,end_epochs=440,keep_prob=1,start_epochs=15
-fit_model(model=BinaryClassification4,modeltype="xgboost",l2reg=30)
+#model=BinaryClassification4,modeltype="perceptron",l2reg=10,end_epochs=440,keep_prob=1,start_epochs=15
+fit_model(model=0,modeltype="xgboost",l2reg=30)
