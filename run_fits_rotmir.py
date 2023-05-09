@@ -377,103 +377,69 @@ stop_time=time.time()
 print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
 
 
-modelnature="convolutional"
-#other options perceptron  convolutional
+def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob=1,start_epochs=15,start_reg=0.3,max_depth=6,alpha=0.001,num_features=1849,rot_image_train=rot_image_train,rot_target_train=rot_target_train,rot_df_train=rot_df_train):
+    #options perceptron  convolutional  xgboost
+    if modeltype=="perceptron":
+        #overwrite to free memory 
+        rot_image_train=0
+        rot_target_train = np.array(rot_target_train)
+        rot_df_train = np.array(rot_df_train.iloc[:,52:1901])
+        train_rot_dataset = ClassificationDataset(torch.from_numpy(rot_df_train).float(), torch.from_numpy(rot_target_train).float())
+        train_rot_loader = DataLoader(dataset=train_rot_dataset, batch_size=BATCH_SIZE, shuffle=True) #shuffle means that algorithm shuffle was not needed
 
-#adding option sto switch easy between neural newtworks
-if modelnature=="perceptron":
-    #overwrite to free memory 
-    rot_image_train=0
-
-
-    #rot_target_train, rot_target_test = np.array(rot_target_train), np.array(rot_target_test)
-    rot_target_train = np.array(rot_target_train)
-    rot_df_train = np.array(rot_df_train.iloc[:,52:1901])
-    #train_imrot_dataset = ClassificationDataset(torch.from_numpy(rot_image_train).float(), torch.from_numpy(rot_target_train).float())
-    #test_imrot_dataset = ClassificationDataset(torch.from_numpy(rot_image_test).float(), torch.from_numpy(rot_target_test).float())
-    train_rot_dataset = ClassificationDataset(torch.from_numpy(rot_df_train).float(), torch.from_numpy(rot_target_train).float())
-    #test_dataset = ClassificationDataset(torch.from_numpy(feature_test).float(), torch.from_numpy(target_test).float())
-    BATCH_SIZE=32
-    #train_imrot_loader = DataLoader(dataset=train_imrot_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    #test_imrot_loader = DataLoader(dataset=test_imrot_dataset, batch_size=1)
-    #train_im_loader_pred = DataLoader(dataset=train_im_dataset, batch_size=1)
-    train_rot_loader = DataLoader(dataset=train_rot_dataset, batch_size=BATCH_SIZE, shuffle=True) #shuffle means that algorithm shuffle was not needed
-    #test_loader = DataLoader(dataset=test_dataset, batch_size=1)
-    #train_loader_pred = DataLoader(dataset=train_dataset, batch_size=1)
-
-    start_time=time.time()
-    keep_prob=1
-    model3 =BinaryClassification4(1849)        
-    model3.to(device)
-    loss_stats_test3 = {    'train': [], 'test': []}
-    #first with large regularization 
-    best_reg=0.00003
-    start_epochs=15
-    start_reg=0.3
-    print(f"run with initial regularization")
-    #test is not rotated 
-    torch_fit(model3,train_rot_loader,test_loader,start_epochs,32,0.001,loss_stats_test3,l2reg=start_reg)
-    print(f"run with given regularization")
-    end_epochs=400
-    torch_fit(model3,train_rot_loader,test_loader,end_epochs,32,0.001,loss_stats_test3,l2reg=best_reg)
-    PATH='/home/tobias/ml-testing/astr-images/mlp_4layers_reg0.00003_rotmir_400epochs.pkl'
-    torch.save(model3.state_dict(), PATH)
-    stop_time=time.time()
-
-
-    print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
-    #xgboost snippet needed 532.151 seconds
+        start_time=time.time()
+        model3 =model(num_features)        
+        model3.to(device)
+        loss_stats_test3 = {    'train': [], 'test': []}
+        best_reg=l2reg
+        print(f"run with initial regularization")
+        #test is not rotated 
+        torch_fit(model3,train_rot_loader,test_loader,start_epochs,BATCH_SIZE,alpha,loss_stats_test3,l2reg=start_reg)
+        print(f"run with given regularization")
+        torch_fit(model3,train_rot_loader,test_loader,end_epochs,BATCH_SIZE,alpha,loss_stats_test3,l2reg=best_reg)
+        PATH='/home/tobias/ml-testing/astr-images/mlp_4layers_reg'+str(best_reg)+'_rotmir_'+str(end_epochs)+'epochs.pkl'
+        torch.save(model3.state_dict(), PATH)
+        stop_time=time.time() 
+        print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
+        pass
+        #perceptrons needs about  4176.255 seconds
     
-if modelnature=="xgboost":
-    #overwrite to free memory 
-    rot_image_train=0
-    start_time=time.time()
-    xgb_reg=XGBClassifier(max_depth=6,reg_lambda=1000.).fit(rot_df_train.iloc[:,52:1901],rot_target_train) 
-    xgb_reg.save_model("xgboost_model_spiral_ell_rot_mirr_l2reg1000.json")
-    stop_time=time.time()
+    elif modeltype=="xgboost":
+        #overwrite to free memory 
+        rot_image_train=0
+        start_time=time.time()
+        xgb_reg=XGBClassifier(max_depth=max_depth,reg_lambda=l2reg).fit(rot_df_train.iloc[:,52:1901],rot_target_train) 
+        xgb_reg.save_model("xgboost_model_spiral_ell_rot_mirr_"+l2reg+".json")
+        stop_time=time.time()
+        print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
+        pass
+        #xgboost snippet needed 532.151 seconds
+        
+    elif modeltype=="convolutional":
+        #overwrite to free memory 
+        rot_df_train=0
+        rot_target_train = np.array(rot_target_train)
+        train_imrot_dataset = ClassificationDataset(torch.from_numpy(rot_image_train).float(), torch.from_numpy(rot_target_train).float())
+        train_imrot_loader = DataLoader(dataset=train_imrot_dataset, batch_size=BATCH_SIZE, shuffle=True)    
+        
+        start_time=time.time()
+        model3 =model()        
+        model3.to(device)
+        loss_stats_test3 = {    'train': [], 'test': []}
+        #first with large regularization 
+        best_reg=l2reg
+        print(f"run with initial regularization")
+        #test is not rotated 
+        torch_fit(model3,train_imrot_loader,test_im_loader,start_epochs,BATCH_SIZE,alpha,loss_stats_test3,l2reg=start_reg)
+        print(f"run with given regularization")
+        torch_fit(model3,train_imrot_loader,test_im_loader,end_epochs,BATCH_SIZE,alpha,loss_stats_test3,l2reg=best_reg)
+        PATH='/home/tobias/ml-testing/astr-images/conv2d_2layers_reg'+str(best_reg)+'_rotmir_'+str(end_epochs)+'epochs.pkl'
+        torch.save(model3.state_dict(), PATH)
+        stop_time=time.time()
 
-    print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
-    #perceptrons needs about  4176.255 seconds
-if modelnature=="convolutional":
-    #overwrite to free memory 
-    rot_df_train=0
+        print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
+        pass
+        #   snippet needed 5733.833 seconds
 
 
-    #rot_target_train, rot_target_test = np.array(rot_target_train), np.array(rot_target_test)
-    rot_target_train = np.array(rot_target_train)
-    #rot_df_train = np.array(rot_df_train.iloc[:,52:1901])
-    train_imrot_dataset = ClassificationDataset(torch.from_numpy(rot_image_train).float(), torch.from_numpy(rot_target_train).float())
-    #test_imrot_dataset = ClassificationDataset(torch.from_numpy(rot_image_test).float(), torch.from_numpy(rot_target_test).float())
-    #train_rot_dataset = ClassificationDataset(torch.from_numpy(rot_df_train).float(), torch.from_numpy(rot_target_train).float())
-    #test_dataset = ClassificationDataset(torch.from_numpy(feature_test).float(), torch.from_numpy(target_test).float())
-    BATCH_SIZE=32
-    train_imrot_loader = DataLoader(dataset=train_imrot_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    #test_imrot_loader = DataLoader(dataset=test_imrot_dataset, batch_size=1)
-    #train_im_loader_pred = DataLoader(dataset=train_im_dataset, batch_size=1)
-    #train_rot_loader = DataLoader(dataset=train_rot_dataset, batch_size=BATCH_SIZE, shuffle=True) #shuffle means that algorithm shuffle was not needed
-    #test_loader = DataLoader(dataset=test_dataset, batch_size=1)
-    #train_loader_pred = DataLoader(dataset=train_dataset, batch_size=1)
-
-    
-
-    start_time=time.time()
-    keep_prob=1
-    model3 =CNNBinary4()        
-    model3.to(device)
-    loss_stats_test3 = {    'train': [], 'test': []}
-    #first with large regularization 
-    best_reg=0.0003
-    start_epochs=15
-    start_reg=0.3
-    print(f"run with initial regularization")
-    #test is not rotated 
-    torch_fit(model3,train_imrot_loader,test_im_loader,start_epochs,32,0.001,loss_stats_test3,l2reg=start_reg)
-    print(f"run with given regularization")
-    end_epochs=240
-    torch_fit(model3,train_imrot_loader,test_im_loader,end_epochs,32,0.001,loss_stats_test3,l2reg=best_reg)
-    PATH='/home/tobias/ml-testing/astr-images/conv2d_2layers_reg0.0003_rotmir_240epochs.pkl'
-    torch.save(model3.state_dict(), PATH)
-    stop_time=time.time()
-
-    print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
-    #   snippet needed 5733.833 seconds
+fit_model(model=BinaryClassification4,modeltype="perceptron",l2reg=0.0001,end_epochs=440,keep_prob=1,start_epochs=15)
