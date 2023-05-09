@@ -409,7 +409,7 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
         rot_image_train=0
         start_time=time.time()
         xgb_reg=XGBClassifier(max_depth=max_depth,reg_lambda=l2reg).fit(rot_df_train.iloc[:,52:1901],rot_target_train) 
-        xgb_reg.save_model("xgboost_model_spiral_ell_rot_mirr_"+l2reg+".json")
+        xgb_reg.save_model("xgboost_model_spiral_ell_rot_mirr_"+str(l2reg)+".json")
         stop_time=time.time()
         print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
         pass
