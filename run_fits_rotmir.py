@@ -470,11 +470,13 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
         torch_fit(model3,train_imrot_loader,test_im_loader,end_epochs,BATCH_SIZE,alpha,loss_stats_test3,l2reg=best_reg)
         PATH='/home/tobias/ml-testing/astr-images/conv2d_2layers_reg'+str(best_reg)+'_rotmir_'+str(end_epochs)+'epochs_v'+str(len(list_input_files))+'.pkl'
         torch.save(model3.state_dict(), PATH)
+        df1.to_csv(string)
         stop_time=time.time()
 
         print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
         pass
         #   snippet needed 5733.833 seconds
+        #w keep_prob=0.75 snippet needed 8084.415 seconds
 
 
 #fit_model(model=BinaryClassification4,modeltype="perceptron",l2reg=0.001,end_epochs=200,keep_prob=1,start_epochs=15,alpha=0.0005)
@@ -485,5 +487,6 @@ fit_model(model=CNNBinary4,modeltype="convolutional",l2reg=0.0001,end_epochs=240
 #or mistake, biut i cannot see it.
 #0.0005 seems better overfittimng need automic stopping 
 #adapting keep_prob works for CNNBinary4 no or little overfitting with below
-#80 epochs seems too much for fit_model(model=CNNBinary4,modeltype="convolutional",l2reg=0.0001,end_epochs=240,keep_prob=0.75,start_epochs=15)
+# from 80 to 240 at most a ltlle improvement
+#fit_model(model=CNNBinary4,modeltype="convolutional",l2reg=0.0001,end_epochs=240,keep_prob=0.75,start_epochs=15)
 #shoudl implement some abort method 
