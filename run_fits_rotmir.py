@@ -376,6 +376,7 @@ rot_image_train,rot_target_train,rot_df_train=get_rot_mirror_all(image_train,tar
 stop_time=time.time()
 print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
 
+keep_prob=1
 
 def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob=1,start_epochs=15,start_reg=0.3,max_depth=6,alpha=0.001,num_features=1849,rot_image_train=rot_image_train,rot_target_train=rot_target_train,rot_df_train=rot_df_train):
     #options perceptron  convolutional  xgboost
@@ -392,13 +393,24 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
         model3.to(device)
         loss_stats_test3 = {    'train': [], 'test': []}
         best_reg=l2reg
+        df1 = pd.DataFrame([[modeltype, start_reg, start_epochs,l2reg,end_epochs,alpha,keep_prob,num_features]], columns=["modeltype","start_reg", "start_epochs","end_reg","end_epochs","alpha","keep_prob","num_features"])
+        print(df1)
+        path='/home/tobias/ml-testing/astr-images/'
+        strings='mlp_4layers_reg'+str(best_reg)+'_rotmir_'+str(end_epochs)+'epochs'
+        list_input_files=[f for f in os.listdir(path) 
+        if f.endswith("_info.csv") and f.startswith(strings) and os.path.isfile(os.path.join(path, f))]
+        list_input_files.sort()
+        print(len(list_input_files))
+        string='mlp_4layers_reg'+str(best_reg)+'_rotmir_'+str(end_epochs)+'epochs_v'+str(len(list_input_files))+'_info.csv'        
+        
         print(f"run with initial regularization")
         #test is not rotated 
         torch_fit(model3,train_rot_loader,test_loader,start_epochs,BATCH_SIZE,alpha,loss_stats_test3,l2reg=start_reg)
         print(f"run with given regularization")
         torch_fit(model3,train_rot_loader,test_loader,end_epochs,BATCH_SIZE,alpha,loss_stats_test3,l2reg=best_reg)
-        PATH='/home/tobias/ml-testing/astr-images/mlp_4layers_reg'+str(best_reg)+'_rotmir_'+str(end_epochs)+'epochs.pkl'
+        PATH='/home/tobias/ml-testing/astr-images/mlp_4layers_reg'+str(best_reg)+'_rotmir_'+str(end_epochs)+'epochs_v'+str(len(list_input_files))+'.pkl'
         torch.save(model3.state_dict(), PATH)
+        df1.to_csv(string) 
         stop_time=time.time() 
         print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
         pass
@@ -407,9 +419,19 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
     elif modeltype=="xgboost":
         #overwrite to free memory 
         rot_image_train=0
+        df1 = pd.DataFrame([[modeltype,l2reg,max_depth]], columns=["modeltype","l2_reg", "max_depth"])
+        print(df1)
+        path='/home/tobias/ml-testing/astr-images/'
+        strings='xgboost_reg'+str(l2reg)+'_rotmir_'
+        list_input_files=[f for f in os.listdir(path) 
+        if f.endswith("_info.csv") and f.startswith(strings) and os.path.isfile(os.path.join(path, f))]
+        list_input_files.sort()
+        print(len(list_input_files))
+        string='xgboost_reg'+str(l2reg)+'_rotmir_v'+str(len(list_input_files))+'_info.csv'  
         start_time=time.time()
         xgb_reg=XGBClassifier(max_depth=max_depth,reg_lambda=l2reg).fit(rot_df_train.iloc[:,52:1901],rot_target_train) 
-        xgb_reg.save_model("xgboost_model_spiral_ell_rot_mirr_"+str(l2reg)+".json")
+        xgb_reg.save_model("xgboost_model_spiral_ell_rot_mirr_"+str(l2reg)+"_v"+str(len(list_input_files))+".json")
+        df1.to_csv(string)         
         stop_time=time.time()
         print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
         pass
@@ -418,6 +440,16 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
     elif modeltype=="convolutional":
         #overwrite to free memory 
         rot_df_train=0
+        df1 = pd.DataFrame([[modeltype, start_reg, start_epochs,l2reg,end_epochs,alpha,keep_prob]], columns=["modeltype","start_reg", "start_epochs","end_reg","end_epochs","alpha","keep_prob"])
+        print(df1)
+        path='/home/tobias/ml-testing/astr-images/'
+        strings='conv2d_2layers_reg'+str(best_reg)+'_rotmir_'+str(end_epochs)+'epochs'
+        list_input_files=[f for f in os.listdir(path) 
+        if f.endswith("_info.csv") and f.startswith(strings) and os.path.isfile(os.path.join(path, f))]
+        list_input_files.sort()
+        print(len(list_input_files))
+        string='conv2d_2layers_reg'+str(best_reg)+'_rotmir_'+str(end_epochs)+'epochs_v'+str(len(list_input_files))+'_info.csv'    
+        
         rot_target_train = np.array(rot_target_train)
         train_imrot_dataset = ClassificationDataset(torch.from_numpy(rot_image_train).float(), torch.from_numpy(rot_target_train).float())
         train_imrot_loader = DataLoader(dataset=train_imrot_dataset, batch_size=BATCH_SIZE, shuffle=True)    
@@ -428,12 +460,13 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
         loss_stats_test3 = {    'train': [], 'test': []}
         #first with large regularization 
         best_reg=l2reg
+        print(f"keep prob is "+keep_prob+"")
         print(f"run with initial regularization")
         #test is not rotated 
         torch_fit(model3,train_imrot_loader,test_im_loader,start_epochs,BATCH_SIZE,alpha,loss_stats_test3,l2reg=start_reg)
         print(f"run with given regularization")
         torch_fit(model3,train_imrot_loader,test_im_loader,end_epochs,BATCH_SIZE,alpha,loss_stats_test3,l2reg=best_reg)
-        PATH='/home/tobias/ml-testing/astr-images/conv2d_2layers_reg'+str(best_reg)+'_rotmir_'+str(end_epochs)+'epochs.pkl'
+        PATH='/home/tobias/ml-testing/astr-images/conv2d_2layers_reg'+str(best_reg)+'_rotmir_'+str(end_epochs)+'epochs_v'+str(len(list_input_files))+'.pkl'
         torch.save(model3.state_dict(), PATH)
         stop_time=time.time()
 
@@ -442,4 +475,10 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
         #   snippet needed 5733.833 seconds
 
 
-fit_model(model=BinaryClassification4,modeltype="perceptron",l2reg=0.0001,end_epochs=440,keep_prob=1,start_epochs=15)
+fit_model(model=BinaryClassification4,modeltype="perceptron",l2reg=0.0001,end_epochs=400,keep_prob=1,start_epochs=15,alpha=0.0005)
+#fit_model(model=CNNBinary4,modeltype="convolutional",l2reg=0.00003,end_epochs=20,keep_prob=1,start_epochs=10)
+
+#BinaryClaass 0.01 alpha seems worse if no other mistake 
+#slow also alpha 0.002 normal maybe in that network 
+#or mistake, biut i cannot see it.
+#0.0005 seems better 
