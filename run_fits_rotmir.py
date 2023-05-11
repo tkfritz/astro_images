@@ -166,7 +166,7 @@ def pred_torch(model,data):
     return y_pred_list_c  
 
 class CNNBinary4(torch.nn.Module):
-    def __init__(self):
+    def __init__(self,keep_prob):
         super(CNNBinary4, self).__init__()
         # L1 ImgIn shape=(?, 43, 43, 1)
         # Conv -> (?, 41, 41, 16)
@@ -222,7 +222,7 @@ def run_loop_torch2(model,train,test,train_for_pred,train_target,test_target,epo
         print(f"running reg of {regs[i]}")
         keep_prob=1
         if num_features==0:
-            model3 =model()
+            model3 =model(keep_prob)
         else:
             #num_features partlz needed
             model3 =model(num_features)            
@@ -271,7 +271,7 @@ def run_loop_torch2b(model,train,test,train_for_pred,train_target,test_target,ep
         print(f"running reg of {regs[i]}")
         keep_prob=1
         if num_features==0:
-            model3 =model()
+            model3 =model(keep_prob)
         else:
             #num_features partly needed
             model3 =model(num_features)            
@@ -337,7 +337,7 @@ def shuffle_ar_list_df(df,series,array):
     return ndf, new_list, newarray
 
 #input image cube, target for them , data frame
-def  get_rot_mirror_all(image, target,df):
+def  get_rot_mirror_all(image, target,df,shuffle=True):
     image_all=np.zeros((image.shape[0]*8,1,image.shape[2],image.shape[3]))
     new_targ=[]
     #rename column to be used new 
@@ -367,8 +367,9 @@ def  get_rot_mirror_all(image, target,df):
         for j in range(image_all.shape[3]):
             ndf[x]=image_all[:,0,i,j]
             x+=1
-    #shuffle all in the same way         
-    ndf,new_targ,image_all=shuffle_ar_list_df(ndf,new_targ,image_all)        
+    #shuffle all in the same way
+    if shuffle==True:
+        ndf,new_targ,image_all=shuffle_ar_list_df(ndf,new_targ,image_all)        
     return image_all,new_targ, ndf  
 
 start_time=time.time()
@@ -376,7 +377,7 @@ rot_image_train,rot_target_train,rot_df_train=get_rot_mirror_all(image_train,tar
 stop_time=time.time()
 print(f"snippet needed {np.round(stop_time-start_time,3)} seconds")
 
-keep_prob=1
+#keep_prob=1
 
 def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob=1,start_epochs=15,start_reg=0.3,max_depth=6,alpha=0.001,num_features=1849,rot_image_train=rot_image_train,rot_target_train=rot_target_train,rot_df_train=rot_df_train):
     #options perceptron  convolutional  xgboost
@@ -389,7 +390,7 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
         train_rot_loader = DataLoader(dataset=train_rot_dataset, batch_size=BATCH_SIZE, shuffle=True) #shuffle means that algorithm shuffle was not needed
 
         start_time=time.time()
-        model3 =model(num_features)        
+        model3 =model(num_features)   #no keep prob yet included     
         model3.to(device)
         loss_stats_test3 = {    'train': [], 'test': []}
         best_reg=l2reg
@@ -440,6 +441,7 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
     elif modeltype=="convolutional":
         #overwrite to free memory 
         rot_df_train=0
+        best_reg=l2reg
         df1 = pd.DataFrame([[modeltype, start_reg, start_epochs,l2reg,end_epochs,alpha,keep_prob]], columns=["modeltype","start_reg", "start_epochs","end_reg","end_epochs","alpha","keep_prob"])
         print(df1)
         path='/home/tobias/ml-testing/astr-images/'
@@ -455,12 +457,12 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
         train_imrot_loader = DataLoader(dataset=train_imrot_dataset, batch_size=BATCH_SIZE, shuffle=True)    
         
         start_time=time.time()
-        model3 =model()        
+        model3 =model(keep_prob)        
         model3.to(device)
         loss_stats_test3 = {    'train': [], 'test': []}
         #first with large regularization 
-        best_reg=l2reg
-        print(f"keep prob is "+keep_prob+"")
+        print(f"keep prob is {keep_prob} ")
+        print(model3)
         print(f"run with initial regularization")
         #test is not rotated 
         torch_fit(model3,train_imrot_loader,test_im_loader,start_epochs,BATCH_SIZE,alpha,loss_stats_test3,l2reg=start_reg)
@@ -475,10 +477,13 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
         #   snippet needed 5733.833 seconds
 
 
-fit_model(model=BinaryClassification4,modeltype="perceptron",l2reg=0.0001,end_epochs=400,keep_prob=1,start_epochs=15,alpha=0.0005)
-#fit_model(model=CNNBinary4,modeltype="convolutional",l2reg=0.00003,end_epochs=20,keep_prob=1,start_epochs=10)
+#fit_model(model=BinaryClassification4,modeltype="perceptron",l2reg=0.001,end_epochs=200,keep_prob=1,start_epochs=15,alpha=0.0005)
+fit_model(model=CNNBinary4,modeltype="convolutional",l2reg=0.0001,end_epochs=240,keep_prob=0.75,start_epochs=15)
 
 #BinaryClaass 0.01 alpha seems worse if no other mistake 
 #slow also alpha 0.002 normal maybe in that network 
 #or mistake, biut i cannot see it.
-#0.0005 seems better 
+#0.0005 seems better overfittimng need automic stopping 
+#adapting keep_prob works for CNNBinary4 no or little overfitting with below
+#80 epochs seems too much for fit_model(model=CNNBinary4,modeltype="convolutional",l2reg=0.0001,end_epochs=240,keep_prob=0.75,start_epochs=15)
+#shoudl implement some abort method 
