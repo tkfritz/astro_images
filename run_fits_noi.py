@@ -354,7 +354,7 @@ def  get_rot_mirror_all(image, target,df):
     c=0
     for i in range(image.shape[0]):
         print(i)
-        image_all[0+i*8:8+8*i,0,:,:]=get_rot_mirror_square(image_train[i,0,:,:])
+        image_all[0+i*8:8+8*i,0,:,:]=get_rot_mirror_square(image[i,0,:,:])
         for j in range(8):
             new_targ.append(target[i])
             #is slow the filling but still acceptable 
@@ -484,4 +484,4 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
         #   snippet needed 5733.833 seconds
 
 #model=BinaryClassification4,modeltype="perceptron",l2reg=10,end_epochs=440,keep_prob=1,start_epochs=15
-fit_model(model=0,modeltype="xgboost",l2reg=30)
+fit_model(model=0,modeltype="xgboost",l2reg=3000.)
