@@ -354,7 +354,7 @@ def  get_rot_mirror_all(image, target,df,shuffle=True):
     c=0
     for i in range(image.shape[0]):
         print(i)
-        image_all[0+i*8:8+8*i,0,:,:]=get_rot_mirror_square(image_train[i,0,:,:])
+        image_all[0+i*8:8+8*i,0,:,:]=get_rot_mirror_square(image[i,0,:,:])
         for j in range(8):
             new_targ.append(target[i])
             #is slow the filling but still acceptable 
@@ -480,7 +480,7 @@ def fit_model(model=0,modeltype="perceptron",l2reg=0.01,end_epochs=200,keep_prob
 
 
 #fit_model(model=BinaryClassification4,modeltype="perceptron",l2reg=0.001,end_epochs=200,keep_prob=1,start_epochs=15,alpha=0.0005)
-fit_model(model=CNNBinary4,modeltype="convolutional",l2reg=0.0001,end_epochs=240,keep_prob=0.75,start_epochs=15)
+fit_model(model=CNNBinary4,modeltype="convolutional",l2reg=0.01,end_epochs=80,keep_prob=0.75,start_epochs=15)
 
 #BinaryClaass 0.01 alpha seems worse if no other mistake 
 #slow also alpha 0.002 normal maybe in that network 
