@@ -503,13 +503,15 @@ def  get_rot_mirror_all(image, target,df,shuffle=True):
     list_df=[ndf,ndf,ndf,ndf,ndf,ndf,ndf,ndf]
     #multiply by 8 
     ndf=pd.concat(list_df,ignore_index=True)
+    #convert target to numpy 
+    target=np.array(target)
     print(ndf.shape,ndf.columns,target.shape)
     c=0
     for i in range(image.shape[0]):
         print(i)
-        image_all[0+i*8:8+8*i,0,:,:]=get_rot_mirror_square(image[i,0,:,:]) #had wrong image_train here
+        image_all[0+i*8:8+8*i,0,:,:]=get_rot_mirror_square(image[i,0,:,:]) 
         for j in range(8):
-            new_targ.append(target[i])
+            new_targ.append(np.array(target[i]))
             #is slow the filling but still acceptable 
             ndf.iloc[c,0:df.shape[1]-1]=df.iloc[i,0:df.shape[1]-1]
             ndf.iloc[c,df.shape[1]-1]=j
@@ -755,7 +757,7 @@ def combine_fit_results2(input_file,keep_prob,list_model,minimise="log_loss_trai
 
 
 #parameters, list of images, list of data frames with classes, model name, iamge output , frame output? 
-def predict_probs(images,classes,model,modelname='convolutional',keep_prob=1,num_features=1849,image_output=True,df_output=True):
+def predict_probs(images,classes,model,modelname='convolutional',keep_prob=1,num_features=1849,image_output=True,df_output=True, split=1,train_choice=True,seed=1):
     cutouts_new=comb_nump_4d(images).T
     print(cutouts_new.shape)
     list_df2=[]
@@ -766,15 +768,26 @@ def predict_probs(images,classes,model,modelname='convolutional',keep_prob=1,num
     df2=pd.concat(list_df2,ignore_index=True)
     print(f"shape of combined data frame {df2.shape}")
     print(f"shape of image file is {cutouts_new.shape}")
-    #if not convolutional add image columns to daat frame 
+    #below needed? 
     if model!='convolutional':
         x=0
         for i in range(cutouts_new.shape[2]):
             for j in range(cutouts_new.shape[3]):
                 df2[x]=cutouts_new[:,0,i,j]
                 x+=1
-    print(df2.shape)  
-    image_rot,target_rot,df_rot=get_rot_mirror_all(cutouts_new,df2.ra,df2.iloc[:,0:52],shuffle=False)
+    #if only test or train subset done                 
+    if split<1:
+        image_train,image_test,df_train,df_test= train_test_split(cutouts_new,df2,train_size=split, shuffle=True, random_state=seed)
+        if train_choice==True:
+            cutouts_new=image_train 
+            df2=df_train
+        else:
+            cutouts_new=image_test 
+            df2=df_test            
+    print(df2.shape)
+    print(df2.columns)
+    # df2.iloc[:,0] is dummy for target 
+    image_rot,target_rot,df_rot=get_rot_mirror_all(cutouts_new,df2.iloc[:,0],df2.iloc[:,0:52],shuffle=False)
     if modelname=='xgboost':
         #overwrite not use ones
         #image_rot=0
@@ -801,7 +814,7 @@ def predict_probs(images,classes,model,modelname='convolutional',keep_prob=1,num
     if modelname=='perceptron':
         #df_rot=0
         #setup data for torch 
-        train_rot_dataset = ClassificationDataset(torch.from_numpy(df_rot.iloc[:,52:1901]).float(), torch.from_numpy(np.array(target_rot)).float())
+        train_rot_dataset = ClassificationDataset(torch.from_numpy(np.array(df_rot.iloc[:,52:1901])).float(), torch.from_numpy(np.array(target_rot)).float())
         train_rot_loader_pred = DataLoader(dataset=train_rot_dataset, batch_size=1)
         model_perfin =BinaryClassification4(num_features)
         model_perfin.load_state_dict(torch.load(model))
