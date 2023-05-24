@@ -71,6 +71,14 @@ def loop_logistic(feature_train,target_train,feature_test,target_test,regs):
         stats[4,i]=log_loss(target_test,test_pred_prob)
     return stats
 
+device = (
+    "cuda"
+    if torch.cuda.is_available()
+    else "mps"
+    if torch.backends.mps.is_available()
+    else "cpu"
+)
+
 class ClassificationDataset(Dataset):
     
     def __init__(self, X_data, y_data):
@@ -83,11 +91,8 @@ class ClassificationDataset(Dataset):
     def __len__ (self):
         return len(self.X_data)
     
-    
-    
-#keep prob better added as parameters when fitting
 class CNNBinary4(torch.nn.Module):
-    def __init__(self):
+    def __init__(self,keep_prob):
         super(CNNBinary4, self).__init__()
         # L1 ImgIn shape=(?, 43, 43, 1)
         # Conv -> (?, 41, 41, 16)
@@ -125,6 +130,15 @@ class CNNBinary4(torch.nn.Module):
         torch.nn.init.xavier_uniform_(self.fc2.weight) # initialize parameters
 
         
+    def forward(self, x):
+        out = self.layer1(x)
+        out = self.layer2(out)
+        out = self.layer3(out) #dont forget to add/omit layer here
+        out = out.view(out.size(0), -1)   # Flatten them for FC
+        out = self.fc1(out)
+        out = torch.sigmoid(self.fc2(out))      #sigmoid because there only two classes  
+        return out
+
     def forward(self, x):
         out = self.layer1(x)
         out = self.layer2(out)
@@ -405,6 +419,44 @@ def plot_bad_images(image,target,prediction1, x,single=False,prediction2=0,scale
     plt.title(string)     
     plt.imshow(dimage,cmap=cm.gray, interpolation='nearest')    
     
+
+def plot_images(image,target,prediction1, x,single=False,prediction2=0,scale=0.5,lim=0,silent=True, different=True):
+    #print(x_test_pred.shape,len(c_test_pred))
+    list_bad=[]
+    for i in range(len(prediction1)):
+        if single==False and different==True:
+            if round(prediction1[i])==target[i] and round(prediction1[i])==round(prediction2[i]) and abs(prediction2[i]-target[i])>lim:
+                list_bad.append(i)
+        elif single==True and different==True:
+            if round(prediction1[i])!=target[i] and abs(prediction1[i]-target[i])>lim:
+                list_bad.append(i)
+        elif single==False and different==False:
+            if round(prediction1[i])!=target[i] and round(prediction1[i])!=round(prediction2[i]):
+                list_bad.append(i)  
+        elif single==True and different==False:
+            if round(prediction1[i])==target[i]:
+                list_bad.append(i)                
+    print(len(list_bad))        
+    plt.axis('off')
+    dimage=np.zeros((43,len(x)*43+len(x)-1))
+    string=''
+    for i in range(len(x)):
+        dimage[:,0+i*44:43+i*44]=(abs(image[list_bad[x[i]],0,:,:])**scale)/(np.max(abs(image[list_bad[x[i]],0,:,:])**scale))    
+        if silent==False:
+            print(list_bad[x[i]])     
+        if bool(target[list_bad[x[i]]])==False and i!=len(x)-1:
+            string+='elliptical          '
+        elif bool(target[list_bad[x[i]]])==False and i==len(x)-1:
+            string+='elliptical'            
+        elif  bool(target[list_bad[x[i]]])==True and i!=len(x)-1:
+            string+='spiral              '
+        else:
+            string+='spiral' 
+    if different==True:  
+        plt.title(string,color='red') 
+    else:  
+        plt.title(string,color='green')         
+    plt.imshow(dimage,cmap=cm.gray, interpolation='nearest')   
     
 def get_rot_mirror_square(dat):
     if dat.shape[0]!=dat.shape[1]:
@@ -652,7 +704,7 @@ def predict_torch2b(model_list,model,test,train_for_pred,train_target,test_targe
     return stats
 
 #input file made with predict_torch2b, keep_prob to select and what is minimized
-def combine_fit_results2(input_file,keep_prob,minimise="log_loss_train"):
+def combine_fit_results2(input_file,keep_prob,list_model,minimise="log_loss_train"):
     list_reg=[]
     for i in range(0,input_file.shape[1]):
         if len(list_reg)==0 and input_file[3,i]==keep_prob:
@@ -662,7 +714,7 @@ def combine_fit_results2(input_file,keep_prob,minimise="log_loss_train"):
             if par==False and input_file[3,i]==keep_prob:
                 list_reg.append(input_file[0,i])   
     list_reg.sort()                     
-    res=np.zeros((8,len(list_reg)))
+    res=np.zeros((9,len(list_reg)))
     res[0,:]=list_reg
     for i in range(len(list_reg)):
         #getting identical events how many are there 
@@ -671,21 +723,97 @@ def combine_fit_results2(input_file,keep_prob,minimise="log_loss_train"):
             if input_file[0,j]==list_reg[i] and input_file[3,j]==keep_prob:
                 c+=1                    
         #make array and fill it then 
-        array=np.zeros((8,c))    
+        array=np.zeros((9,c))    
         c=0
         for j in range(input_file.shape[1]):
             if input_file[0,j]==list_reg[i] and input_file[3,j]==keep_prob:         
-                array[:,c]=input_file[:,j]
+                array[0:8,c]=input_file[:,j]
+                array[8,c]=j
                 c+=1                    
         #choose with different options
         if minimise=='log_loss_test':
             res[1:8,i]=array[1:8,np.argmin(array[7,:])]
+            res[8,i]=array[8,np.argmin(array[7,:])]
         if minimise=='log_loss_train':
-            res[1:8,i]=array[1:8,np.argmin(array[6,:])]    
+            res[1:8,i]=array[1:8,np.argmin(array[6,:])]  
+            res[8,i]=array[8,np.argmin(array[6,:])]
         if minimise=='f1_train':
-            res[1:8,i]=array[1:8,np.argmax(array[4,:])]    
+            res[1:8,i]=array[1:8,np.argmax(array[4,:])]  
+            res[8,i]=array[8,np.argmin(array[4,:])]            
+            
         if minimise=='f1_test':
             res[1:8,i]=array[1:8,np.argmax(array[5,:])]   
+            res[8,i]=array[8,np.argmin(array[5,:])]            
         if minimise=='epochs':
-            res[1:8,i]=array[1:8,np.argmax(array[1,:])]      
-    return res
+            res[1:8,i]=array[1:8,np.argmax(array[1,:])]    
+            res[8,i]=array[8,np.argmin(array[1,:])]            
+    #select the best models
+    list_select=[]
+    for i in range(res.shape[1]):
+        list_select.append(list_model[int(res[8,i])])
+    return res[0:8,:], list_select
+
+
+#parameters, list of images, list of data frames with classes, model name, iamge output , frame output? 
+def predict_probs(images,classes,model,modelname='convolutional',keep_prob=1,num_features=1849,image_output=True,df_output=True):
+    cutouts_new=comb_nump_4d(images).T
+    print(cutouts_new.shape)
+    list_df2=[]
+    for i in range(len(classes)):
+        i=pd.read_csv(classes[i])
+        list_df2.append(i)  
+    print(f"number of tables is {len(list_df2)}") 
+    df2=pd.concat(list_df2,ignore_index=True)
+    print(f"shape of combined data frame {df2.shape}")
+    print(f"shape of image file is {cutouts_new.shape}")
+    #if not convolutional add image columns to daat frame 
+    if model!='convolutional':
+        x=0
+        for i in range(cutouts_new.shape[2]):
+            for j in range(cutouts_new.shape[3]):
+                df2[x]=cutouts_new[:,0,i,j]
+                x+=1
+    print(df2.shape)  
+    image_rot,target_rot,df_rot=get_rot_mirror_all(cutouts_new,df2.ra,df2.iloc[:,0:52],shuffle=False)
+    if modelname=='xgboost':
+        #overwrite not use ones
+        #image_rot=0
+        target_rot=0
+        xgb_reg=XGBClassifier()
+        xgb_reg.load_model(model)
+        pred_si=xgb_reg.predict_proba(df_rot.iloc[:,52:1901])
+        #combine the 8 rotation entries 
+        predboth=comb_entries(pred_si,8,avg=True)
+        pred=predboth[:,1]
+        print(df_rot.columns[52:1901],pred.shape)
+    if modelname=='convolutional':
+        #df_rot=0
+        #setup data for torch 
+        train_imrot_dataset = ClassificationDataset(torch.from_numpy(image_rot).float(), torch.from_numpy(np.array(target_rot)).float())
+        train_imrot_loader_pred = DataLoader(dataset=train_imrot_dataset, batch_size=1)
+        keep_prob=keep_prob
+        model_convfin =CNNBinary4(keep_prob)
+        model_convfin.load_state_dict(torch.load(model))
+        model_convfin.eval()
+
+        pred_si=pred_torch(model_convfin,train_imrot_loader_pred)
+        pred=comb_entries(np.array(pred_si),8,avg=True)    
+    if modelname=='perceptron':
+        #df_rot=0
+        #setup data for torch 
+        train_rot_dataset = ClassificationDataset(torch.from_numpy(df_rot.iloc[:,52:1901]).float(), torch.from_numpy(np.array(target_rot)).float())
+        train_rot_loader_pred = DataLoader(dataset=train_rot_dataset, batch_size=1)
+        model_perfin =BinaryClassification4(num_features)
+        model_perfin.load_state_dict(torch.load(model))
+        model_perfin.eval()
+
+        pred_si=pred_torch(model_perfin,train_im_loader_pred)
+        pred=comb_entries(np.array(pred_si),8,avg=True)         
+    if image_output==True and df_output==True:    
+        return pred, df2, cutouts_new
+    elif image_output==False and df_output==True:    
+        return pred, df2
+    elif image_output==True and df_output==False:    
+        return pred, cutouts_new
+    else:
+        return pred    
