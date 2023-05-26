@@ -433,10 +433,9 @@ def plot_images(image,target,prediction1, x,single=False,prediction2=0,scale=0.5
         elif single==False and different==False:
             if round(prediction1[i])!=target[i] and round(prediction1[i])!=round(prediction2[i]):
                 list_bad.append(i)  
-        elif single==True and different==False:
+        elif single==True and different==False and abs(prediction1[i]-target[i])<1-lim:
             if round(prediction1[i])==target[i]:
-                list_bad.append(i)                
-    print(len(list_bad))        
+                list_bad.append(i)                       
     plt.axis('off')
     dimage=np.zeros((43,len(x)*43+len(x)-1))
     string=''
@@ -756,6 +755,7 @@ def combine_fit_results2(input_file,keep_prob,list_model,minimise="log_loss_trai
     return res[0:8,:], list_select
 
 
+#should define colu,mns used backwards for image since not all have the the same size 
 #parameters, list of images, list of data frames with classes, model name, iamge output , frame output? 
 def predict_probs(images,classes,model,modelname='convolutional',keep_prob=1,num_features=1849,image_output=True,df_output=True, split=1,train_choice=True,seed=1):
     cutouts_new=comb_nump_4d(images).T
@@ -794,7 +794,7 @@ def predict_probs(images,classes,model,modelname='convolutional',keep_prob=1,num
         target_rot=0
         xgb_reg=XGBClassifier()
         xgb_reg.load_model(model)
-        pred_si=xgb_reg.predict_proba(df_rot.iloc[:,52:1901])
+        pred_si=xgb_reg.predict_proba(df_rot.iloc[:,-1849:])
         #combine the 8 rotation entries 
         predboth=comb_entries(pred_si,8,avg=True)
         pred=predboth[:,1]
@@ -814,13 +814,14 @@ def predict_probs(images,classes,model,modelname='convolutional',keep_prob=1,num
     if modelname=='perceptron':
         #df_rot=0
         #setup data for torch 
-        train_rot_dataset = ClassificationDataset(torch.from_numpy(np.array(df_rot.iloc[:,52:1901])).float(), torch.from_numpy(np.array(target_rot)).float())
+        train_rot_dataset = ClassificationDataset(torch.from_numpy(np.array(df_rot.iloc[:,-1849:])).float(), torch.from_numpy(np.array(target_rot)).float())
+        #old train_rot_dataset = ClassificationDataset(torch.from_numpy(np.array(df_rot.iloc[:,52:1901])).float(), torch.from_numpy(np.array(target_rot)).float())
         train_rot_loader_pred = DataLoader(dataset=train_rot_dataset, batch_size=1)
         model_perfin =BinaryClassification4(num_features)
         model_perfin.load_state_dict(torch.load(model))
         model_perfin.eval()
 
-        pred_si=pred_torch(model_perfin,train_im_loader_pred)
+        pred_si=pred_torch(model_perfin,train_rot_loader_pred)
         pred=comb_entries(np.array(pred_si),8,avg=True)         
     if image_output==True and df_output==True:    
         return pred, df2, cutouts_new
