@@ -831,3 +831,59 @@ def predict_probs(images,classes,model,modelname='convolutional',keep_prob=1,num
         return pred, cutouts_new
     else:
         return pred    
+
+#get shifted offsets neeeds df and list fits images as inut, option could be improved
+def shifted_cutouts(df,list_images,offsets=20):
+    centers=np.zeros((2,len(list_images)))
+    wcs_par=np.zeros((6,len(list_images)))
+    for i in range(len(list_images)):
+        #get images
+        hbin=fits.open(list_images[i],memmap=True)
+        #get parameters wanted 
+        res=image_area(hbin)
+        par=image_par(hbin)
+        hbin.close()
+        centers[0,i]=(res[0,0]+res[0,1])/2  #center is avarage of extension in both dimensions
+        centers[1,i]=(res[1,0]+res[1,1])/2
+        #parameters to find objects on images
+        wcs_par[:,i]=par
+    #Now inserting code to get also shifted ipixel positions  
+    #make all to function at the end 
+    if offsets==20:
+        list_df2=[df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df]  
+    if offsets==25:
+        list_df2=[df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df]          
+    print(f"number of tables is {len(list_df2)}") 
+    dfselall=pd.concat(list_df2,ignore_index=True)
+    print(dfselall.columns[0:52])
+    dfselall=dfselall.iloc[:,0:52]
+    dfselall['offset']=0
+
+    for i in range(offsets):
+        dfselall.offset.iloc[i*dfsel.shape[0]:(i+1)*dfsel.shape[0]]=i
+    #need to be old name 
+    dfselall['pixel_x']=dfselall.offset+dfselall.pixel_x     
+    #now getting images 
+    dfselall=dfselall.sort_values(by=['image','pixel_x'],ascending=[True,True])
+    dfselall=dfselall.reset_index()
+    print(dfselall.head)    
+    print(dfselall.pixel_x)
+    dfselall,cut_out=get_cutouts(dfselall,21,list_input_files)
+
+    df3=dfselall[dfselall.off_image==False]
+    #new image array, to which also a 4 dimension of zero size is added 
+    cut_out2=np.zeros((cut_out.shape[0],cut_out.shape[1],1,df3.shape[0]))
+    counter=0
+    for i in range(dfselall.shape[0]):
+        if dfselall.off_image.iloc[i]==False:
+            #adding the cut outs not of image
+            cut_out2[:,:,0,counter]=cut_out[:,:,i]
+            counter+=1        
+    print(f"counter is {counter}, number of rows is {df3.shape[0]}")            
+    #only return when there is something otherwise likely a problem        
+    if counter>0:
+        print("all good")
+        return cut_out2, df3
+    else:
+        print("nothing saved, there is nothing collected")
+        return None, None           
