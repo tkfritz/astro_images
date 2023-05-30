@@ -91,6 +91,61 @@ class ClassificationDataset(Dataset):
     def __len__ (self):
         return len(self.X_data)
     
+#now 3 layers 
+#two options only 
+class BinaryClassification3(nn.Module):
+    def __init__(self, num_features):
+        super(BinaryClassification3, self).__init__()
+        self.fc1 = nn.Linear(num_features, 60)
+        self.fc2 = nn.Linear(60, 20)  
+        self.fc3 = nn.Linear(20, 8)        
+        self.fc4 = nn.Linear(8, 1)   
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        x = torch.relu(self.fc3(x))
+        x = torch.sigmoid(self.fc4(x))
+        return (x)
+
+#two layers neural networks
+class CNNBinary3(torch.nn.Module):
+    #no padding because image does not really end when the data ends. 
+    def __init__(self):
+        super(CNNBinary3, self).__init__()
+        # L1 ImgIn shape=(?, 11, 11, 1)
+        # Conv -> (?, 9, 9, 12)
+        # Pool -> (?, 4, 4, 32)
+        self.layer1 = torch.nn.Sequential(
+            torch.nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=0),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(kernel_size=2, stride=2),
+            torch.nn.Dropout(p=1 - keep_prob))
+        # L2 ImgIn shape=(?, 4, 4, 32)
+        # Conv      ->(?, 2, 2, 32)
+        # Pool      ->(?, 1, 1, 32)
+        self.layer2 = torch.nn.Sequential(
+            torch.nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=0),
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(kernel_size=2, stride=2),
+            torch.nn.Dropout(p=1 - keep_prob))
+        # L3 FC 1x1x32 inputs -> 64 outputs
+        self.fc1 = torch.nn.Linear(1 * 1 * 32, 64, bias=True)
+        torch.nn.init.xavier_uniform(self.fc1.weight)
+        self.layer3 = torch.nn.Sequential(
+            self.fc1,
+            torch.nn.ReLU(),
+            torch.nn.Dropout(p=1 - keep_prob))
+        # L4 Final FC 64 inputs -> 1 output
+        self.fc2 = torch.nn.Linear(64, 1, bias=True) #
+        torch.nn.init.xavier_uniform_(self.fc2.weight) # initialize parameters
+        
+    def forward(self, x):
+        out = self.layer1(x)
+        out = self.layer2(out)
+        out = out.view(out.size(0), -1)   # Flatten them for FC
+        out = self.fc1(out)
+        out = torch.sigmoid(self.fc2(out))
+        return out    
 class CNNBinary4(torch.nn.Module):
     def __init__(self,keep_prob):
         super(CNNBinary4, self).__init__()
