@@ -852,7 +852,9 @@ def shifted_cutouts(df,list_images,offsets=20):
     if offsets==20:
         list_df2=[df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df]  
     if offsets==25:
-        list_df2=[df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df]          
+        list_df2=[df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df]    
+    if offsets==30:
+        list_df2=[df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df,df]          
     print(f"number of tables is {len(list_df2)}") 
     dfselall=pd.concat(list_df2,ignore_index=True)
     print(dfselall.columns[0:52])
@@ -860,7 +862,7 @@ def shifted_cutouts(df,list_images,offsets=20):
     dfselall['offset']=0
 
     for i in range(offsets):
-        dfselall.offset.iloc[i*dfsel.shape[0]:(i+1)*dfsel.shape[0]]=i
+        dfselall.offset.iloc[i*df.shape[0]:(i+1)*df.shape[0]]=i
     #need to be old name 
     dfselall['pixel_x']=dfselall.offset+dfselall.pixel_x     
     #now getting images 
@@ -868,7 +870,7 @@ def shifted_cutouts(df,list_images,offsets=20):
     dfselall=dfselall.reset_index()
     print(dfselall.head)    
     print(dfselall.pixel_x)
-    dfselall,cut_out=get_cutouts(dfselall,21,list_input_files)
+    dfselall,cut_out=get_cutouts(dfselall,21,list_images)
 
     df3=dfselall[dfselall.off_image==False]
     #new image array, to which also a 4 dimension of zero size is added 
@@ -887,3 +889,83 @@ def shifted_cutouts(df,list_images,offsets=20):
     else:
         print("nothing saved, there is nothing collected")
         return None, None           
+    
+    
+
+
+def image_area(dat):
+    ra_ref=dat[0].header['CRVAL1']
+    ra_center=dat[0].header['CRPIX1']
+    ra_scale=dat[0].header['CD1_1']
+    dec_ref=dat[0].header['CRVAL2']
+    dec_center=dat[0].header['CRPIX2']
+    dec_scale=dat[0].header['CD2_2'] 
+    image=dat[0].data
+    res=np.array([[ra_ref+(1-ra_center)*ra_scale,ra_ref+(image.shape[0]-ra_center)*ra_scale],[dec_ref+(1-dec_center)*dec_scale,dec_ref+(image.shape[1]-dec_center)*dec_scale]])
+    return res
+
+def image_par(dat):
+    ra_ref=dat[0].header['CRVAL1']
+    ra_center=dat[0].header['CRPIX1']
+    ra_scale=dat[0].header['CD1_1']
+    dec_ref=dat[0].header['CRVAL2']
+    dec_center=dat[0].header['CRPIX2']
+    dec_scale=dat[0].header['CD2_2'] 
+    par=np.array([ra_ref,ra_center,ra_scale,dec_ref,dec_center,dec_scale])
+    return par
+
+def image_xy(ra,dec,dat=0,par=0,image=True):
+    #image is used input and the parameters are used
+    if image==True:
+        ra_ref=dat[0].header['CRVAL1']
+        ra_center=dat[0].header['CRPIX1']
+        ra_scale=dat[0].header['CD1_1']
+        dec_ref=dat[0].header['CRVAL2']
+        dec_center=dat[0].header['CRPIX2']
+        dec_scale=dat[0].header['CD2_2'] 
+    #paramter input    
+    else:   
+        ra_ref=par[0]
+        ra_center=par[1]
+        ra_scale=par[2]
+        dec_ref=par[3]
+        dec_center=par[4]
+        dec_scale=par[5]
+    #get the positions (pixels on image) 
+    # the cosine part is only important if the image not close to the euqator 
+    x=ra_center+(ra-ra_ref)/ra_scale*np.cos(dec/180*np.pi)
+    y=dec_center+(dec-dec_ref)/dec_scale
+    pixels=np.array([x,y])
+    return pixels
+
+
+def get_cutouts(df,delta,list_files):
+    #collected array
+    c=0
+    cut_outs=np.zeros((2*delta+1,2*delta+1,df.shape[0]))
+    #parameter to indicate whether an image exist. 
+    df['off_image']=False
+    for i in range(df.shape[0]):
+        #image loaded if first image
+        if i==0:
+            #load file
+            hbin=fits.open(list_files[df.image.iloc[i]])
+            #get image, need to be transposed because of difefrent definitions in astronomy and numpy on what is the first axis
+            image=hbin[0].data.T
+        else:
+            #or if new image
+            if df.image.iloc[i]!=df.image.iloc[i-1]:
+                hbin=fits.open(list_files[df.image.iloc[i]])
+                #need to be transposed because of difefrent definitions in astronomy and numpy on what is the first axis
+                image=hbin[0].data.T  
+        #gfigure out if within image borders  then cut out image is collected       
+        if round(df.pixel_x.iloc[i])>delta and round(df.pixel_x.iloc[i])<image.shape[0]-delta and  round(df.pixel_y.iloc[i])>delta and round(df.pixel_y.iloc[i])<image.shape[1]-delta:
+            cut_outs[:,:,i]=image[round(df.pixel_x.iloc[i])-delta:round(df.pixel_x.iloc[i])+delta+1,round(df.pixel_y.iloc[i])-delta:round(df.pixel_y.iloc[i])+delta+1]
+        else:
+            #if not marker column set to true
+            print(f"row {i} is off the image")
+            df['off_image'].iloc[i]=True
+            c+=1
+    print(f"{c} objects are off the image")        
+    return df, cut_outs 
+    
