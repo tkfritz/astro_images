@@ -55,11 +55,11 @@ def loop_xgboost(feature_train,target_train,feature_test,target_test,regs):
         stats[4,i]=log_loss(target_test,test_pred_prob)
     return stats
 
-def loop_logistic(feature_train,target_train,feature_test,target_test,regs):
+def loop_logistic(feature_train,target_train,feature_test,target_test,regs,max_its=10000):
     stats=np.zeros((5,len(regs)))
     for i in range(len(regs)):
         print(f"doing l2 regularization {regs[i]}") #does not always converge but are cases which are certainly not useful ones
-        xc1=LogisticRegression(max_iter=10000,penalty='l2',C=regs[i]).fit(feature_train,target_train)
+        xc1=LogisticRegression(max_iter=max_its,penalty='l2',C=regs[i]).fit(feature_train,target_train)
         train_pred=xc1.predict(feature_train)
         test_pred=xc1.predict(feature_test)
         train_pred_prob=xc1.predict_proba(feature_train)
@@ -277,7 +277,7 @@ def run_loop_torch(model,train,test,train_for_pred,train_target,test_target,epoc
         print(f"running reg of {regs[i]}")
         keep_prob=1
         if num_features==0:
-            model3 =model()
+            model3 =model(keep_prob)
         else:
             #num_features partlz needed
             model3 =model(num_features)            
