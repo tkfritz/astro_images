@@ -268,6 +268,35 @@ def pred_torch(model,data):
     y_pred_list_c = [a.squeeze().tolist() for a in y_pred_list_c]
     return y_pred_list_c   
 
+#loop on regularization 
+#model used, train set, test set, train set for predict, train_target, test_target
+#epochs, batch?size, alpha of fit, list of regularization, optional number of features needed for perceptron 
+def run_loop_torch(model,train,test,train_for_pred,train_target,test_target,epochs,batch,alpha,regs,num_features=0):
+    stats=np.zeros((5,len(regs)))
+    for i in range(len(regs)):
+        print(f"running reg of {regs[i]}")
+        keep_prob=1
+        if num_features==0:
+            model3 =model()
+        else:
+            #num_features partlz needed
+            model3 =model(num_features)            
+        model3.to(device)
+        loss_stats_test3 = {
+        'train': [], 'test': []
+        }
+        torch_fit(model3,train,test,epochs,batch,alpha,loss_stats_test3,l2reg=regs[i])
+        test_pred=pred_torch(model3,test)
+        train_pred=pred_torch(model3,train_for_pred)
+        stats[0,i]=regs[i]
+        stats[1,i]=f1_score(train_target,np.round(train_pred))
+        stats[2,i]=f1_score(test_target,np.round(test_pred))
+        stats[3,i]=log_loss(train_target,(train_pred))
+        stats[4,i]=log_loss(test_target,(test_pred))   
+        print(f"stats of l2reg of  {regs[i]} are {np.round(stats[1:5,i],5)}")
+    print(f"full stats are {np.round(stats[:,:].T,5)}")
+    return stats
+
 #prediction, model (class), train data, etst data, train data for prediction, train targets, test targets, epochs , batch size, alpha of fit, 
 #regularizations to try, number of feature (not neded for convolutional)
 def run_loop_torch2(model,train,test,train_for_pred,train_target,test_target,epochs,batch,alpha,regs,num_features=0):
