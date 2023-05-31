@@ -110,7 +110,7 @@ class BinaryClassification3(nn.Module):
 #two layers neural networks
 class CNNBinary3(torch.nn.Module):
     #no padding because image does not really end when the data ends. 
-    def __init__(self):
+    def __init__(self,keep_prob):
         super(CNNBinary3, self).__init__()
         # L1 ImgIn shape=(?, 11, 11, 1)
         # Conv -> (?, 9, 9, 12)
@@ -146,6 +146,7 @@ class CNNBinary3(torch.nn.Module):
         out = self.fc1(out)
         out = torch.sigmoid(self.fc2(out))
         return out    
+    
 class CNNBinary4(torch.nn.Module):
     def __init__(self,keep_prob):
         super(CNNBinary4, self).__init__()
