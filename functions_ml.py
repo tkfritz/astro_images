@@ -39,11 +39,11 @@ def comb_nump_4d(input_list):
         l+=a.shape[3]  
     return combined
 
-def loop_xgboost(feature_train,target_train,feature_test,target_test,regs):
+def loop_xgboost(feature_train,target_train,feature_test,target_test,regs,max_depth=6):
     stats=np.zeros((5,len(regs)))
     for i in range(len(regs)):
         print(f"doing l2 regularization {regs[i]}")
-        xc1=XGBClassifier(max_depth=6,reg_lambda=regs[i]).fit(feature_train,target_train)
+        xc1=XGBClassifier(max_depth=max_depth,reg_lambda=regs[i]).fit(feature_train,target_train)
         train_pred=xc1.predict(feature_train)
         test_pred=xc1.predict(feature_test)
         train_pred_prob=xc1.predict_proba(feature_train)
