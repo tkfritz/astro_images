@@ -49,8 +49,13 @@ def loop_xgboost(feature_train,target_train,feature_test,target_test,regs,max_de
         train_pred_prob=xc1.predict_proba(feature_train)
         test_pred_prob=xc1.predict_proba(feature_test)
         stats[0,i]=regs[i]
-        stats[1,i]=f1_score(target_train,train_pred)
-        stats[2,i]=f1_score(target_test,test_pred)       
+        if target_train.nunique()==2:
+            stats[1,i]=f1_score(target_train,train_pred)
+            stats[2,i]=f1_score(target_test,test_pred)   
+        #needs other weights as default of binary if more than value exist   
+        else:
+            stats[1,i]=f1_score(target_train,train_pred,average='weighted')
+            stats[2,i]=f1_score(target_test,test_pred,average='weighted')           
         stats[3,i]=log_loss(target_train,train_pred_prob)
         stats[4,i]=log_loss(target_test,test_pred_prob)
     return stats
@@ -65,8 +70,13 @@ def loop_logistic(feature_train,target_train,feature_test,target_test,regs,max_i
         train_pred_prob=xc1.predict_proba(feature_train)
         test_pred_prob=xc1.predict_proba(feature_test)
         stats[0,i]=regs[i]
-        stats[1,i]=f1_score(target_train,train_pred)
-        stats[2,i]=f1_score(target_test,test_pred)       
+        if target_train.nunique()==2:
+            stats[1,i]=f1_score(target_train,train_pred)
+            stats[2,i]=f1_score(target_test,test_pred)   
+        #needs other weights as default of binary if more than value exist   
+        else:
+            stats[1,i]=f1_score(target_train,train_pred,average='weighted')
+            stats[2,i]=f1_score(target_test,test_pred,average='weighted')               
         stats[3,i]=log_loss(target_train,train_pred_prob)
         stats[4,i]=log_loss(target_test,test_pred_prob)
     return stats
@@ -340,6 +350,24 @@ class BinaryClassification4(nn.Module):
         self.fc3 = nn.Linear(100, 30)        
         self.fc4 = nn.Linear(30, 10)   
         self.fc5 = nn.Linear(10, 1)          
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        x = torch.relu(self.fc3(x))
+        x = torch.relu(self.fc4(x))        
+        x = torch.sigmoid(self.fc5(x))
+        return (x)
+
+#mlp networks with 4 layers 
+#three output options 
+class Classification43(nn.Module):
+    def __init__(self, num_features):
+        super(Classification43, self).__init__()
+        self.fc1 = nn.Linear(num_features, 300)
+        self.fc2 = nn.Linear(300, 100)  
+        self.fc3 = nn.Linear(100, 30)        
+        self.fc4 = nn.Linear(30, 10)   
+        self.fc5 = nn.Linear(10, 3)          
     def forward(self, x):
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
